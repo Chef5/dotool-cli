@@ -1,0 +1,3 @@
+<view class="const-container container {{ theme }}">
+  <view class="title">{{ text }}</view>
+</view>
