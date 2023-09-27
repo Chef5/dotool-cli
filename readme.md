@@ -16,6 +16,9 @@ npm install -g dotool-cli
 
 ## Usage
 
+``` sh
+dotool create
+```
 
 ## License
 
