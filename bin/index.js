@@ -52,9 +52,10 @@ program.command('create', { isDefault: true })
       libs.copyTemplateToRepository(name);
       // 修改复制后的内容
       libs.rewriteComponent(name, componentOtherInfo);
-      // TODO: 修改.vuepress/config 配置
-
-      // TODO: 添加小程序示例代码
+      // 修改.vuepress/config 配置
+      libs.setVuePress(name);
+      // 添加小程序示例代码
+      libs.addExample(name, componentOtherInfo);
       log(`create ${name} success`)
     } catch (error) {
       log(libs.errorMessage[error] || error);
