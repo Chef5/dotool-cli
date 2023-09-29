@@ -10,7 +10,7 @@
 
 ``` json
 "usingComponents": {
-  "c-title": "@const/weapp/c-title/index"
+  "{componentName}": "@const/weapp/{componentName}/index"
 }
 ```
 
@@ -19,7 +19,7 @@
 默认样式：
 
 ``` html
-<c-title text="一级标题" />
+<{componentName} text="一级标题" />
 ```
 
 ## 属性

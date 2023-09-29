@@ -6,6 +6,9 @@ const escodegen = require('escodegen');
 const estraverse = require('estraverse');
 
 const config = require('./config');
+const tools = require('./tools');
+const componentEditor = require('./editor/componentEditor');
+const exampleEditor = require('./editor/exampleEditor');
 
 const log = console.log;
 
@@ -18,36 +21,6 @@ const errorMessage = {
   componentNameFormatError: `${chalk.red('组件命名不符合规范，请按照规范进行命名')}`,
   componentNameDuplicated: `${chalk.yellow('组件名称重复，请更换其他名称')}`,
   vuePressConfigPathError: `${chalk.red('vuepress配置文件路径错误')}`,
-};
-
-/**
- * @description get ast node Expression
- * @param obj object|array
- * @param [type='ObjectExpression'] ObjectExpression|ArrayExpression
- * @returns {*} 
- */
-const getNodeExpression = (obj, type = 'ObjectExpression') => {
-  const getValue = (val) => {
-    // TODO: check Object or other types
-    return typeof val === 'string' ? `'${val}'` : val;
-  };
-  const objStr = Object.entries(obj).reduce((s, [key, val]) => {
-    return `${s} ${key}: ${getValue(val)},`
-  }, '{') + '}';
-  if (objStr.length < 2) {
-    throw new Error('getNodeExpression transform obj to objStr fail');
-  }
-  const ast = esprima.parseScript(`const obj = ${objStr}`);
-  let expression = null;
-  estraverse.traverse(ast, {
-    enter: function (node) {
-      if (node?.type === type) {
-        expression = node;
-        this.break();
-      }
-    }
-  });
-  return expression;
 };
 
 const checkRepository = () => {
@@ -90,26 +63,6 @@ const copyTemplateToRepository = (componentName) => {
   }
 };
 
-// {key} will be replaced by params: { key: value }
-const mapReplace = (template, params) => {
-  return template.replace(/\{(.+?)\}/g, (result, key) => {
-    return params[key] || result || '';
-  })
-}
-
-const rewriteComponentReadme = (filePath, componentName, componentOtherInfo) => {
-  const fileText = fs.readFileSync(filePath, { encoding: 'utf8' });
-  const fileTextModified = mapReplace(fileText, {
-    componentName,
-    ...componentOtherInfo,
-  });
-  fs.writeFileSync(filePath, fileTextModified, { encoding: 'utf8' });
-};
-const rewriteComponentJs = (filePath, componentName, componentOtherInfo) => {};
-const rewriteComponentJson = (filePath, componentName, componentOtherInfo) => {};
-const rewriteComponentWxml = (filePath, componentName, componentOtherInfo) => {};
-const rewriteComponentLess = (filePath, componentName, componentOtherInfo) => {};
-
 const rewriteComponent = (componentName, componentOtherInfo) => {
   const componentPath = path.join(currentPath, config.sourceDirectory, componentName);
   const componentFiles = fs.readdirSync(componentPath);
@@ -118,23 +71,23 @@ const rewriteComponent = (componentName, componentOtherInfo) => {
     const filePath = path.join(componentPath, file);
     switch (file.split('.').pop().toLowerCase()) {
       case 'md': {
-        rewriteComponentReadme(filePath, componentName, componentOtherInfo);
+        componentEditor.rewriteComponentReadme(filePath, componentName, componentOtherInfo);
         break;
       }
       case 'js': {
-        rewriteComponentJs(filePath, componentName, componentOtherInfo);
+        componentEditor.rewriteComponentJs(filePath, componentName, componentOtherInfo);
         break;
       }
       case 'json': {
-        rewriteComponentJson(filePath, componentName, componentOtherInfo);
+        componentEditor.rewriteComponentJson(filePath, componentName, componentOtherInfo);
         break;
       }
       case 'wxml': {
-        rewriteComponentWxml(filePath, componentName, componentOtherInfo);
+        componentEditor.rewriteComponentWxml(filePath, componentName, componentOtherInfo);
         break;
       }
       case 'less': {
-        rewriteComponentLess(filePath, componentName, componentOtherInfo);
+        componentEditor.rewriteComponentLess(filePath, componentName, componentOtherInfo);
         break;
       }
       default: break;
@@ -196,7 +149,34 @@ const copyExamplePageToExample = (componentName) => {
     }
     throw error;
   }
-}
+};
+const rewriteExample = (componentName, componentOtherInfo) => {
+  const examplePath = path.join(currentPath, config.examplePageDirectory, componentName);
+  const exampleFiles = fs.readdirSync(examplePath);
+  // TODO: 主题代码
+  exampleFiles.forEach(file => {
+    const filePath = path.join(examplePath, file);
+    switch (file.split('.').pop().toLowerCase()) {
+      case 'js': {
+        exampleEditor.rewriteExampleJs(filePath, componentName, componentOtherInfo);
+        break;
+      }
+      case 'json': {
+        exampleEditor.rewriteExampleJson(filePath, componentName, componentOtherInfo);
+        break;
+      }
+      case 'wxml': {
+        exampleEditor.rewriteExampleWxml(filePath, componentName, componentOtherInfo);
+        break;
+      }
+      case 'wxss': {
+        exampleEditor.rewriteExampleWxss(filePath, componentName, componentOtherInfo);
+        break;
+      }
+      default: break;
+    }
+  });
+};
 const setExampleAppJson = (componentName) => {
   const filePath = path.join(currentPath, config.exampleRootDirectory, 'app.json');
   if (!fs.existsSync(filePath)) {
@@ -224,7 +204,7 @@ const setExampleIndexRoute = (componentName, componentOtherInfo) => {
         && node?.value.type === 'ArrayExpression') {
         node.value.elements = [
           ...node.value.elements,
-          getNodeExpression({
+          tools.getNodeExpression({
             label: componentName,
             value: componentOtherInfo.componentTitle,
             theme: componentOtherInfo.componentTheme,
@@ -244,16 +224,11 @@ const setExampleIndexRoute = (componentName, componentOtherInfo) => {
   });
   fs.writeFileSync(filePath, modifiedCode, 'utf8');
 };
-
-const rewriteExample = (componentName) => {
-  // TODO: 修改js、json、wxml、wxss
-  // TODO: 主题示例代码
-};
 const addExample = (componentName, componentOtherInfo) => {
   // 复制示例代码
   copyExamplePageToExample(componentName);
-  // TODO: 修改示例代码
-  rewriteExample(componentName);
+  // 修改示例代码
+  rewriteExample(componentName, componentOtherInfo);
   // app.json 添加配置
   setExampleAppJson(componentName);
   // pages/index.js 添加跳转路由
